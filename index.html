@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ফটোকার্ড মেকার</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --maroon:#4a1a2c; --blue:#2563eb; --ink:#14224f; --bg:#f1f5f9; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); font-family:"Noto Sans Bengali",sans-serif; color:#222; padding:16px; }
+  .panel { background:#fff; border-radius:24px; padding:24px; max-width:640px; margin:0 auto 24px; box-shadow:0 2px 10px rgba(0,0,0,.08); }
+  h1 { margin:0 0 4px; font-size:26px; color:var(--ink); }
+  .sub { margin:0 0 16px; color:#555; font-size:15px; }
+  .box { background:#eef4ff; border:1px solid #cfe0ff; border-radius:16px; padding:16px; margin:16px 0; }
+  label { display:block; font-weight:700; color:var(--ink); margin:16px 0 8px; }
+  textarea, input[type=text] { width:100%; border:1px solid #cbd5e1; border-radius:12px; padding:14px; font:inherit; background:#f8fafc; }
+  textarea { height:110px; resize:vertical; }
+  input[type=file] { font:inherit; }
+  input[type=file]::file-selector-button { background:var(--blue); color:#fff; border:0; border-radius:999px; padding:12px 20px; font:inherit; font-weight:700; margin-right:10px; }
+  button.dl { width:100%; background:var(--blue); color:#fff; border:0; border-radius:14px; padding:16px; font:inherit; font-weight:800; font-size:18px; margin-top:20px; }
+  .preview { max-width:640px; margin:0 auto; }
+  canvas { width:100%; height:auto; border-radius:8px; display:block; box-shadow:0 2px 12px rgba(0,0,0,.2); }
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <h1>ফটোকার্ড মেকার</h1>
+  <p class="sub">আপনার ক্রিয়েটিভিটির প্রমাণ দিন</p>
+
+  <div class="box">
+    <label style="margin-top:0">১. ছবি নির্বাচন করুন (১-২টি)</label>
+    <input type="file" id="photos" accept="image/*" multiple>
+  </div>
+
+  <label>২. সংবাদ শিরোনাম</label>
+  <textarea id="headline" placeholder="এখানে সংবাদ লিখুন..."></textarea>
+
+  <label>৩. সূত্র বা প্রতিবেদকের নাম</label>
+  <input type="text" id="source" placeholder="যেমন: নিজস্ব প্রতিবেদক">
+
+  <button class="dl" id="download">ফটোকার্ড ডাউনলোড করুন</button>
+</div>
+
+<div class="preview"><canvas id="card" width="1080" height="1350"></canvas></div>
+
+<script>
+const W = 1080, H = 1350, BORDER = 22;
+const canvas = document.getElementById('card');
+const ctx = canvas.getContext('2d');
+const FONT = '"Noto Sans Bengali", sans-serif';
+
+let photos = [];          // loaded Image objects
+const logo = new Image();
+let logoOK = false;
+logo.onload = () => { logoOK = true; draw(); };
+logo.src = 'logo.png';    // আপনার লোগো ফাইলের নাম logo.png হতে হবে
+
+function drawCover(img, x, y, w, h) {
+  const r = Math.max(w / img.width, h / img.height);
+  const sw = w / r, sh = h / r;
+  ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, x, y, w, h);
+}
+
+function wrap(text, maxW) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const lines = []; let line = '';
+  for (const w of words) {
+    const t = line ? line + ' ' + w : w;
+    if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = w; }
+    else line = t;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function draw() {
+  const headline = document.getElementById('headline').value;
+  const source = document.getElementById('source').value;
+
+  // frame
+  ctx.fillStyle = '#4a1a2c'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#fff'; ctx.fillRect(BORDER, BORDER, W - 2 * BORDER, H - 2 * BORDER);
+
+  // photo area
+  const px = BORDER, py = BORDER, pw = W - 2 * BORDER, ph = 700;
+  ctx.fillStyle = '#e2e8f0'; ctx.fillRect(px, py, pw, ph);
+  if (photos.length === 1) {
+    drawCover(photos[0], px, py, pw, ph);
+  } else if (photos.length >= 2) {
+    const half = (pw - 8) / 2;
+    drawCover(photos[0], px, py, half, ph);
+    drawCover(photos[1], px + half + 8, py, half, ph);
+  } else {
+    ctx.fillStyle = '#94a3b8'; ctx.font = `700 36px ${FONT}`; ctx.textAlign = 'center';
+    ctx.fillText('ছবি এখানে দেখা যাবে', W / 2, py + ph / 2);
+  }
+
+  // logo (top-left)
+  if (logoOK) {
+    ctx.save();
+    ctx.beginPath(); ctx.arc(110, 110, 62, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.clip();
+    ctx.drawImage(logo, 48, 48, 124, 124);
+    ctx.restore();
+  }
+
+  // headline
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  const tx = 70, tw = W - 140, ty = py + ph + 40, tBottom = H - 190;
+  const text = headline || 'এখানে আপনার সংবাদ শিরোনাম দেখা যাবে';
+  let size = 80, lines;
+  while (size > 30) {
+    ctx.font = `800 ${size}px ${FONT}`;
+    lines = wrap(text, tw);
+    if (lines.length * size * 1.4 <= tBottom - ty) break;
+    size -= 2;
+  }
+  ctx.fillStyle = headline ? '#111827' : '#9ca3af';
+  lines.forEach((l, i) => ctx.fillText(l, tx, ty + size * 1.1 + i * size * 1.4));
+
+  // bottom bar
+  ctx.fillStyle = '#4a1a2c'; ctx.fillRect(BORDER, H - 150, W - 2 * BORDER, 128);
+  ctx.fillStyle = '#fff'; ctx.font = `700 44px ${FONT}`;
+  ctx.textBaseline = 'middle';
+  ctx.fillText(source || 'সূত্র / প্রতিবেদক', 70, H - 86);
+  ctx.textBaseline = 'alphabetic';
+}
+
+document.getElementById('photos').addEventListener('change', async (e) => {
+  const files = [...e.target.files].slice(0, 2);
+  photos = await Promise.all(files.map(f => new Promise(res => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.src = URL.createObjectURL(f);
+  })));
+  draw();
+});
+['headline', 'source'].forEach(id => document.getElementById(id).addEventListener('input', draw));
+
+document.getElementById('download').addEventListener('click', () => {
+  canvas.toBlob(b => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = 'photocard.png';
+    a.click();
+  }, 'image/png');
+});
+
+draw();
+document.fonts.load(`800 40px ${FONT}`).then(() => document.fonts.ready).then(draw);
+</script>
+</body>
+</html>
